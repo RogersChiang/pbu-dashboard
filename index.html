@@ -191,7 +191,7 @@ let charts={};
     D.tab5.forEach(a=>{const level=a.remaining<=0?'<span class="tag" style="background:#fef2f2;color:#ef4444">🔴 已超期</span>':a.remaining<=7?'<span class="tag" style="background:#fffbeb;color:#d97706">🟡 7天内</span>':'<span class="tag" style="background:#eff6ff;color:#3b82f6">🔵 14天内</span>';h+=`<tr><td><strong style="font-family:monospace">${a.reqId||'—'}</strong></td><td>${a.position}</td><td>${a.recruiter}</td><td>${a.region}</td><td>${a.org3||'—'}</td><td>${a.days}天</td><td>${a.cycle}天</td><td><strong>${a.remaining<=0?'已超'+Math.abs(a.remaining):a.remaining+'天'}</strong></td><td>${level}</td></tr>`});
     h+=`</tbody></table></div>`;
     document.getElementById('tab5content').innerHTML=h;
-  }}
+  }
 })();
 </script>
 </body>
