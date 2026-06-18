@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PBU2026全球招聘数据看板</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+</script>
+<style>
+:root {
+  --bg: #f0f2f5; --card: #fff; --pri: #4361ee; --pri2: #3f37c9;
+  --suc: #06d6a0; --warn: #ffd166; --dgr: #ef476f;
+  --txt: #1e293b; --txt2: #64748b; --bor: #e2e8f0;
+  --radius: 10px; --sh: 0 1px 3px rgba(0,0,0,0.06);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--txt);-webkit-font-smoothing:antialiased}
+
+.header{background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);padding:20px 28px 14px;color:#fff}
+.header h1{font-size:20px;font-weight:700;letter-spacing:-0.3px}
+.header .meta{font-size:12px;opacity:0.6;margin-top:2px}
+.header .note{font-size:11px;opacity:0.5;margin-top:6px;line-height:1.8;max-width:900px}
+
+.container{max-width:1440px;margin:0 auto;padding:20px 28px}
+
+/* Tabs */
+.tab-nav{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.tab-btn{padding:9px 20px;border:1.5px solid #cbd5e1;border-radius:22px;background:#fff;cursor:pointer;font-size:13px;font-weight:500;color:var(--txt2);transition:all .2s;white-space:nowrap}
+.tab-btn:hover{border-color:var(--pri);color:var(--pri)}
+.tab-btn.active{background:var(--pri);color:#fff;border-color:var(--pri)}
+.tab-badge{display:inline-block;min-width:18px;height:18px;line-height:18px;border-radius:9px;font-size:10px;text-align:center;margin-left:6px;padding:0 5px}
+.tab-btn.active .tab-badge{background:rgba(255,255,255,.25)}
+.tab-btn:not(.active) .tab-badge{background:#f1f5f9}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* KPI row */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+.kpi-card{background:var(--card);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--sh);transition:.2s}
+.kpi-card:hover{box-shadow:0 4px 12px rgba(0,0,0,0.08)}
+.kpi-label{font-size:12px;color:var(--txt2);margin-bottom:4px;font-weight:500}
+.kpi-value{font-size:28px;font-weight:700}
+.kpi-sub{font-size:11px;color:var(--txt2);margin-top:2px}
+.kpi-card.highlight{border-left:3px solid var(--pri)}
+.kpi-chip{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;margin-right:4px;margin-top:3px}
+.kpi-chip b{font-size:13px}
+.kpi-chip-green{background:#dcfce7;color:#15803d}
+.kpi-chip-amber{background:#fef3c7;color:#b45309}
+.kpi-chip-blue{background:#dbeafe;color:#1d4ed8}
+.kpi-chip-red{background:#fee2e2;color:#b91c1c}
+.kpi-chip-purple{background:#f3e8ff;color:#7c3aed}
+.kpi-chip-gray{background:#f1f5f9;color:#475569}
+
+/* charts grid */
+.charts-row{display:grid;gap:14px;margin-bottom:14px}
+.charts-2{grid-template-columns:1fr 1fr}
+.charts-1{grid-template-columns:1fr}
+.charts-3{grid-template-columns:1fr 1fr 1fr}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--sh);overflow:hidden}
+.card-hd{padding:14px 18px;border-bottom:1px solid var(--bor);display:flex;align-items:center;justify-content:space-between}
+.card-hd h3{font-size:13px;font-weight:600}
+.badge{font-size:10px;padding:3px 10px;border-radius:10px;font-weight:500;letter-spacing:.2px}
+.badge-blue{background:#eff6ff;color:#3b82f6}
+.badge-green{background:#f0fdf4;color:#22c55e}
+.badge-amber{background:#fffbeb;color:#f59e0b}
+.badge-red{background:#fef2f2;color:#ef4444}
+.card-bd{padding:16px 18px}
+.card-bd.nopad{padding:0}
+.chart-wrap{position:relative;width:100%}
+.chart-wrap canvas{width:100%!important}
+
+/* tables */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{background:#f8fafc;padding:9px 12px;text-align:left;font-weight:600;color:var(--txt2);border-bottom:2px solid var(--bor);white-space:nowrap;font-size:11px;text-transform:uppercase;letter-spacing:.3px}
+tbody td{padding:9px 12px;border-bottom:1px solid #f1f5f9;white-space:nowrap}
+tbody tr:hover{background:#f8faff}
+.tag{display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:500}
+.tag-onboard{background:#dcfce7;color:#16a34a}
+.tag-offer{background:#fef3c7;color:#d97706}
+.tag-active{background:#dbeafe;color:#2563eb}
+.tag-other{background:#f1f5f9;color:#64748b}
+
+.pbar-wrap{width:100px;height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;display:inline-block;vertical-align:middle}
+.pbar-fill{height:100%;border-radius:3px;transition:.3s}
+.pb-g{background:var(--suc)}.pb-y{background:var(--warn)}.pb-r{background:var(--dgr)}
+
+.conv{font-size:11px;color:var(--txt2)}
+
+.empty{padding:40px;text-align:center;color:var(--txt2)}
+.empty .ico{font-size:36px;margin-bottom:8px}
+
+/* leaderboard */
+.leader-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #f1f5f9;transition:.15s}
+.leader-row:hover{background:#f8faff}
+.leader-rank{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.lr-1{background:#fef3c7;color:#b45309}
+.lr-2{background:#e2e8f0;color:#475569}
+.lr-3{background:#fed7aa;color:#c2410c}
+.lr-n{background:#f1f5f9;color:#64748b}
+.leader-name{font-weight:600;font-size:13px;width:90px;flex-shrink:0}
+.leader-stats{flex:1;display:flex;gap:8px;flex-wrap:wrap;font-size:11px}
+.leader-stat{padding:2px 8px;border-radius:4px;background:#f8fafc;white-space:nowrap}
+.leader-stat strong{color:var(--pri)}
+
+/* heat numbers */
+.num-hi{color:#ef4444;font-weight:600}
+.num-md{color:#f59e0b;font-weight:600}
+.num-lo{color:#22c55e;font-weight:600}
+.num-na{color:#94a3b8}
+
+@media(max-width:1024px){.kpi-row{grid-template-columns:repeat(3,1fr)}.charts-2,.charts-3{grid-template-columns:1fr}}
+@media(max-width:640px){.kpi-row{grid-template-columns:repeat(2,1fr)}.container{padding:12px}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>PBU2026全球招聘数据看板</h1>
+  <div class="meta">数据更新时间：2026年6月17日</div>
+  <div class="note">
+    <strong>数据口径：</strong><br>
+    1. 岗位数据来源于PBU2026全球招聘excel看板<br>
+    2. 数据周期为2026年结束的招聘需求时间<br>
+    3. 该看板漏斗分析仅展示未入职招聘需求的招聘情况，已入职需求不展示具体数据<br>
+    4. 该数据包括PBU体系内+体系外所有招聘数据，具体结果以SSC每周招聘达成看板为主
+  </div>
+</div>
+
+<div class="container">
+
+<!-- KPI Cards -->
+<div class="kpi-row">
+  <div class="kpi-card highlight">
+    <div class="kpi-label">全年岗位总数</div>
+    <div class="kpi-value" id="kpi0">88</div>
+    <div class="kpi-sub" id="kpi0sub">
+      <span class="kpi-chip kpi-chip-green">已入职 <b>71</b> 人</span>
+      <span class="kpi-chip kpi-chip-amber">已发offer待入职 <b>7</b> 人</span>
+      <span class="kpi-chip kpi-chip-blue">招聘中 <b>10</b> 人</span>
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">累计获取简历（全年）</div>
+    <div class="kpi-value" id="kpi1">229</div>
+    <div class="kpi-sub">
+      <span class="kpi-chip kpi-chip-purple">有效简历 <b>162</b></span>
+      <span class="kpi-chip kpi-chip-blue">转化率 <b>70.7%</b></span>
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">一/二面通过（全年）</div>
+    <div class="kpi-value" id="kpi2">121</div>
+    <div class="kpi-sub">
+      <span class="kpi-chip kpi-chip-amber">从有效简历 <b>162</b> 转化</span>
+      <span class="kpi-chip kpi-chip-blue">转化率 <b>74.7%</b></span>
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">终面通过（全年）</div>
+    <div class="kpi-value" id="kpi3">63</div>
+    <div class="kpi-sub">
+      <span class="kpi-chip kpi-chip-amber">从一面 <b>121</b> 转化</span>
+      <span class="kpi-chip kpi-chip-red">转化率 <b>52.1%</b></span>
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">已发Offer（全年）</div>
+    <div class="kpi-value" id="kpi4">35</div>
+    <div class="kpi-sub">
+      <span class="kpi-chip kpi-chip-amber">从终面 <b>63</b> 转化</span>
+      <span class="kpi-chip kpi-chip-green">转化率 <b>55.6%</b></span>
+    </div>
+  </div>
+</div>
+
+<!-- Tab Navigation -->
+<div class="tab-nav" id="tabNav">
+  <button class="tab-btn active" data-tab="tab1">📊 全年招聘漏斗分析<span class="tab-badge">88</span></button>
+  <button class="tab-btn" data-tab="tab2">🎯 目前在招岗位明细<span class="tab-badge">17</span></button>
+  <button class="tab-btn" data-tab="tab3">🌍 部门维度分析</button>
+  <button class="tab-btn" data-tab="tab4">👤 负责人维度分析</button>
+  <button class="tab-btn" data-tab="tab5">⚠️ 招聘周期预警<span class="tab-badge">1</span></button>
+</div>
+
+<!-- TAB 1: 全年漏斗 -->
+<div class="tab-panel active" id="panel-tab1">
+  <div class="charts-row charts-2">
+    <div class="card">
+      <div class="card-hd"><h3>全年岗位招聘漏斗</h3><span class="badge badge-blue">含转化率</span></div>
+      <div class="card-bd"><div class="chart-wrap" style="height:300px"><canvas id="chart1_funnel"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><h3>漏斗各阶段转化率</h3><span class="badge badge-green">逐层分析</span></div>
+      <div class="card-bd"><div class="chart-wrap" style="height:300px"><canvas id="chart1_rate"></canvas></div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hd"><h3>全年岗位漏斗明细（excl. 暂停招聘 / 提前启动暂未提单）</h3><span class="badge badge-blue">88个岗位</span></div>
+    <div class="card-bd" style="padding:0 0 16px 0"><div class="tbl-wrap"><table><thead><tr>
+      <th>部门</th><th>职位名称</th><th>负责人</th><th>状态</th><th>区域</th><th>需求编号</th><th>推荐简历</th><th>简历通过</th><th>一面</th><th>二面</th><th>终面</th><th>Offer</th><th>简历→通过</th><th>通过→一面</th><th>一面→二面</th><th>二面→终面</th><th>终面→Offer</th><th>招聘天数</th><th>标准周期</th></tr></thead>
+      <tbody id="tab1tbl"></tbody></table></div></div>
+  </div>
+</div>
+
+<!-- TAB 2: 目前在招 -->
+<div class="tab-panel" id="panel-tab2">
+  <div class="charts-row charts-2">
+    <div class="card">
+      <div class="card-hd"><h3>在招岗位招聘漏斗</h3><span class="badge badge-amber">正常招聘 + 已发offer待入职</span></div>
+      <div class="card-bd"><div class="chart-wrap" style="height:300px"><canvas id="chart2_funnel"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><h3>在招岗位部门分布</h3><span class="badge badge-green">按部门/岗位数</span></div>
+      <div class="card-bd"><div class="chart-wrap" style="height:300px"><canvas id="chart2_dept"></canvas></div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hd"><h3>在招岗位逐条分析</h3><span class="badge badge-amber">按部门/负责人排序</span></div>
+    <div class="card-bd" style="padding:0 0 16px 0"><div class="tbl-wrap"><table><thead><tr>
+      <th>部门</th><th>职位名称</th><th>负责人</th><th>状态</th><th>区域</th><th>推荐简历</th><th>简历通过</th><th>一面</th><th>二面</th><th>终面</th><th>Offer</th><th>通过→一面</th><th>一面→二面</th><th>二面→终面</th><th>终面→Offer</th><th>已招聘</th><th>标准周期</th><th>进度</th></tr></thead>
+      <tbody id="tab2tbl"></tbody></table></div></div>
+  </div>
+</div>
+
+<!-- TAB 3: 区域 -->
+<div class="tab-panel" id="panel-tab3">
+  <div class="charts-row charts-2">
+    <div class="card">
+      <div class="card-hd"><h3>部门招聘漏斗对比</h3><span class="badge badge-blue">按组织部门</span></div>
+      <div class="card-bd"><div class="chart-wrap" style="height:300px"><canvas id="chart3_funnel"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><h3>部门岗位状态分布</h3><span class="badge badge-green">含各状态占比</span></div>
+      <div class="card-bd"><div class="chart-wrap" style="height:300px"><canvas id="chart3_status"></canvas></div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hd"><h3>部门维度详细对比</h3><span class="badge badge-blue">按三级组织（欧洲区取四级）</span></div>
+    <div class="card-bd" style="padding:0 0 16px 0"><div class="tbl-wrap"><table><thead><tr>
+      <th>部门</th><th>岗位总数</th><th>已入职</th><th>已发offer</th><th>招聘中</th><th>推荐简历</th><th>简历通过</th><th>一面</th><th>二面</th><th>终面</th><th>Offer</th><th>简历→通过</th><th>通过→一面</th><th>一面→二面</th><th>二面→终面</th><th>终面→Offer</th></tr></thead>
+      <tbody id="tab3tbl"></tbody></table></div></div>
+  </div>
+</div>
+
+<!-- TAB 4: 负责人 -->
+<div class="tab-panel" id="panel-tab4">
+  <div class="charts-row charts-2">
+    <div class="card">
+      <div class="card-hd"><h3>负责人岗位数 & Offer 排行</h3><span class="badge badge-amber">含漏斗数据</span></div>
+      <div class="card-bd"><div class="chart-wrap" style="height:380px"><canvas id="chart4_bar"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><h3>负责人效能看板</h3><span class="badge badge-green">转化可视化</span></div>
+      <div class="card-bd" id="leaderboard" style="max-height:380px;overflow-y:auto"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hd"><h3>负责人维度详细数据（全年统计，excl. 暂停/提前启动未提单）</h3><span class="badge badge-blue">13位负责人</span></div>
+    <div class="card-bd" style="padding:0 0 16px 0"><div class="tbl-wrap"><table><thead><tr>
+      <th>负责人</th><th>岗位数</th><th>已入职</th><th>已发offer</th><th>招聘中</th><th>推荐简历</th><th>简历通过</th><th>一面</th><th>二面</th><th>终面</th><th>Offer</th><th>简历→通过</th><th>通过→一面</th><th>一面→二面</th><th>二面→终面</th><th>终面→Offer</th><th>Offer率</th></tr></thead>
+      <tbody id="tab4tbl"></tbody></table></div></div>
+  </div>
+</div>
+
+<!-- TAB 5: 预警 -->
+<div class="tab-panel" id="panel-tab5">
+  <div class="card">
+    <div class="card-hd"><h3>招聘周期预警</h3><span class="badge badge-red">还差≤14天超周期 / 已超周期</span></div>
+    <div class="card-bd"><div id="tab5content"></div></div>
+  </div>
+</div>
+
+</div>
+
+<script src="data.js"></script>
+<script>
+
+function pct(a,b){if(!b||b<=0)return'—';return(a/b*100).toFixed(1)+'%'}
+function sd(d){if(d<0||d>1000)return'—';return d}
+function tag(s){if(s==='已入职')return'<span class="tag tag-onboard">已入职</span>';if(s==='已发offer待入职')return'<span class="tag tag-offer">已发offer待入职</span>';if(s==='正常招聘')return'<span class="tag tag-active">正常招聘</span>';return'<span class="tag tag-other">'+s+'</span>'}
+function pbar(ratio){if(ratio<0)ratio=0;if(ratio>1.2)ratio=1.2;let c=ratio<=0.5?'pb-g':ratio<=0.8?'pb-y':'pb-r';let w=Math.min(ratio,1)*100;return'<span class="pbar-wrap"><span class="pbar-fill '+c+'" style="width:'+w+'%"></span></span>'}
+function cn(a,b){if(b<=0)return'<span class="num-na">—</span>';if(a/b>=0.5)return'<span class="num-hi">'+pct(a,b)+'</span>';if(a/b>=0.2)return'<span class="num-md">'+pct(a,b)+'</span>';return'<span class="num-lo">'+pct(a,b)+'</span>'}
+
+// ===== TAB SWITCHING =====
+document.querySelectorAll('.tab-btn').forEach(b=>{b.addEventListener('click',function(){document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));this.classList.add('active');document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+this.dataset.tab).classList.add('active');setTimeout(()=>{Object.values(charts).forEach(c=>{if(c&&c.resize)c.resize()})},100)})});
+
+let charts={};
+
+// ===== Tabs 1: Annual Funnel =====
+(function(){
+  const f=D.tab1.funnelAll;
+  const stages=['推荐简历','简历通过','一面通过','二面通过','终面通过','Offer'];
+  const vals=[f.resumes,f.validResumes,f.round1,f.round2,f.final,f.offers];
+  const colors=['#4361ee','#7209b7','#8b5cf6','#f72585','#f8961e','#06d6a0'];
+  
+  // Funnel bar
+  charts.c1f=new Chart(document.getElementById('chart1_funnel'),{type:'bar',data:{labels:stages,datasets:[{data:vals,backgroundColor:colors,borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.raw+' 人'+(ctx.dataIndex>0?' (转化率 '+pct(vals[ctx.dataIndex],vals[ctx.dataIndex-1])+')':'')}}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false}}}}});
+  
+  // Conversion rate chart
+  const rates=[null,vals[1]/vals[0]*100,vals[2]/vals[1]*100,vals[3]/vals[2]*100,vals[4]/vals[3]*100,vals[5]/vals[4]*100];
+  const rateLabels=['简历→通过','通过→一面','一面→二面','二面→终面','终面→Offer'];
+  const rateVals=rates.slice(1);
+  charts.c1r=new Chart(document.getElementById('chart1_rate'),{type:'bar',data:{labels:rateLabels,datasets:[{data:rateVals,backgroundColor:['#4361ee','#8b5cf6','#f72585','#f8961e','#06d6a0'],borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.raw.toFixed(1)+'%'}}},scales:{y:{beginAtZero:true,max:100,grid:{color:'#f1f5f9'},ticks:{callback:v=>v+'%'}},x:{grid:{display:false}}}}});
+  
+  // Table - sort by status priority, then by recruiter name
+  const statusOrder={'已发offer待入职':1,'正常招聘':2,'已入职':3,'暂未提招聘申请':4,'提前启动，暂未提单':5};
+  const sorted=[...D.tab1.positions].sort((a,b)=>{
+    const sa=statusOrder[a.status]||99;
+    const sb=statusOrder[b.status]||99;
+    if(sa!==sb)return sa-sb;
+    return (a.recruiter||'').localeCompare(b.recruiter||'','zh');
+  });
+  let h='';
+  sorted.forEach(p=>{
+    h+=`<tr><td>${p.dept||'—'}</td><td><strong>${p.position}</strong></td><td>${p.recruiter}</td><td>${tag(p.status)}</td><td>${p.region}</td><td>${p.reqId||'—'}</td><td>${p.resumes}</td><td>${p.validResumes}</td><td>${p.round1}</td><td>${p.round2||0}</td><td>${p.final}</td><td><strong>${p.offers}</strong></td><td>${pct(p.validResumes,p.resumes)}</td><td>${pct(p.round1,p.validResumes)}</td><td>${pct(p.round2||0,p.round1)}</td><td>${pct(p.final,p.round2||0)}</td><td>${pct(p.offers,p.final)}</td><td>${sd(p.days)}</td><td>${p.cycle||'—'}天</td></tr>`;
+  });
+  document.getElementById('tab1tbl').innerHTML=h;
+})();
+
+// ===== Tab 2: Active Positions =====
+(function(){
+  const f=D.activeKpi;
+  const stageNames=['推荐简历','简历通过','一面','二面','终面','Offer'];
+  const vals=[f.resumes,f.validResumes,f.round1,f.round2,f.final,f.offers];
+  
+  charts.c2f=new Chart(document.getElementById('chart2_funnel'),{type:'bar',data:{labels:stageNames,datasets:[{data:vals,backgroundColor:['#4361ee','#7209b7','#8b5cf6','#f72585','#f8961e','#06d6a0'],borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.raw+' 人'+(ctx.dataIndex>0?' (转化率 '+pct(vals[ctx.dataIndex],vals[ctx.dataIndex-1])+')':'')}}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false}}}}});
+  
+  // Active positions by department chart
+  const deptMap={};
+  D.tab2.forEach(p=>{const d=p.dept||'其他';deptMap[d]=(deptMap[d]||0)+1;});
+  const deptEntries=Object.entries(deptMap).sort((a,b)=>b[1]-a[1]);
+  charts.c2d=new Chart(document.getElementById('chart2_dept'),{type:'bar',data:{labels:deptEntries.map(e=>e[0].length>8?e[0].slice(0,8)+'...':e[0]),datasets:[{label:'在招岗位数',data:deptEntries.map(e=>e[1]),backgroundColor:'rgba(67,97,238,0.75)',borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{stepSize:1}},y:{grid:{display:false}}}}});
+  
+  let h='';
+  const stOrder={'已发offer待入职':1,'正常招聘':2};
+  const tsorted=[...D.tab2].sort((a,b)=>{
+    const sa=stOrder[a.status]||99;
+    const sb=stOrder[b.status]||99;
+    if(sa!==sb)return sa-sb;
+    return (a.recruiter||'').localeCompare(b.recruiter||'','zh');
+  });
+  tsorted.forEach(p=>{
+    const dept=p.dept||'—';
+    const days=sd(p.days);
+    const ratio=p.cycle>0?days!=='—'?days/p.cycle:0:0;
+    h+=`<tr><td>${dept}</td><td><strong>${p.position}</strong></td><td>${p.recruiter}</td><td>${tag(p.status)}</td><td>${p.region}</td><td>${p.resumes}</td><td>${p.validResumes}</td><td>${p.round1}</td><td>${p.round2||0}</td><td>${p.final}</td><td><strong>${p.offers}</strong></td><td>${pct(p.round1,p.validResumes)}</td><td>${pct(p.round2||0,p.round1)}</td><td>${pct(p.final,p.round2||0)}</td><td>${pct(p.offers,p.final)}</td><td>${days}</td><td>${p.cycle}天</td><td>${ratio>0?pbar(ratio):'<span class="num-na">—</span>'}</td></tr>`;
+  });
+  document.getElementById('tab2tbl').innerHTML=h;
+})();
+
+// ===== Tab 3: Department-level (custom sort + flags) =====
+(function(){
+  const depts=D.tab3;
+
+  // Funnel chart: all depts, show 获取简历 + Offer
+  const labels=depts.map(d=>d.name.length>8?d.name.slice(0,8)+'...':d.name);
+  charts.c3f=new Chart(document.getElementById('chart3_funnel'),{type:'bar',data:{labels:labels,datasets:[
+    {label:'获取简历',data:depts.map(d=>d.resumes),backgroundColor:'rgba(67,97,238,0.75)',borderRadius:4},
+    {label:'Offer',data:depts.map(d=>d.offers),backgroundColor:'rgba(6,214,160,0.85)',borderRadius:4}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{usePointStyle:true,padding:16,font:{size:12}}}},scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'}},x:{grid:{display:false},ticks:{font:{size:9}}}}}});
+
+  // Status distribution: all depts, stacked bar with 已入职+已发offer+招聘中+获取简历
+  charts.c3s=new Chart(document.getElementById('chart3_status'),{type:'bar',data:{labels:labels,datasets:[
+    {label:'获取简历',data:depts.map(d=>d.resumes),backgroundColor:'rgba(67,97,238,0.55)',borderRadius:4},
+    {label:'已入职',data:depts.map(d=>d.onboarded),backgroundColor:'rgba(6,214,160,0.75)',borderRadius:4},
+    {label:'已发offer',data:depts.map(d=>d.offered),backgroundColor:'rgba(255,209,102,0.75)',borderRadius:4},
+    {label:'招聘中',data:depts.map(d=>d.recruiting),backgroundColor:'rgba(239,71,111,0.65)',borderRadius:4}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{usePointStyle:true,padding:16,font:{size:12}}}},scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:9}}},y:{stacked:true,beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{stepSize:5}}}}});
+
+  // Table with flags
+  let h='';
+  depts.forEach(r=>{
+    h+=`<tr><td><strong>${r.displayName}</strong></td><td><strong>${r.positions}</strong></td><td>${r.onboarded}</td><td>${r.offered}</td><td>${r.recruiting}</td><td>${r.resumes}</td><td>${r.validResumes}</td><td>${r.round1}</td><td>${r.round2||0}</td><td>${r.final}</td><td><strong>${r.offers}</strong></td><td>${pct(r.validResumes,r.resumes)}</td><td>${pct(r.round1,r.validResumes)}</td><td>${pct(r.round2||0,r.round1)}</td><td>${pct(r.final,r.round2||0)}</td><td>${pct(r.offers,r.final)}</td></tr>`;
+  });
+  document.getElementById('tab3tbl').innerHTML=h;
+})();
+
+// ===== Tab 4: Recruiter =====
+(function(){
+  // Bar chart: positions + offers per recruiter (top 15)
+  const recs=D.tab4;
+  charts.c4b=new Chart(document.getElementById('chart4_bar'),{type:'bar',data:{labels:recs.map(r=>r.name),datasets:[{label:'岗位数',data:recs.map(r=>r.positions),backgroundColor:recs.map((r,i)=>i<3?'rgba(67,97,238,0.85)':'rgba(67,97,238,0.35)'),borderRadius:4},{label:'Offer数',data:recs.map(r=>r.offers),backgroundColor:recs.map((r,i)=>i<3?'rgba(6,214,160,0.85)':'rgba(6,214,160,0.35)'),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{usePointStyle:true,padding:16,font:{size:12}}}},scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{stepSize:5}},x:{grid:{display:false},ticks:{font:{size:10}}}}}});
+  
+  // Leaderboard
+  let lb='<div style="font-size:11px;color:var(--txt2);margin-bottom:8px">按岗位数排序，展示全年漏斗转化</div>';
+  recs.forEach((r,i)=>{
+    const rank=i+1;
+    const rc=rank===1?'lr-1':rank===2?'lr-2':rank===3?'lr-3':'lr-n';
+    const oRate=pct(r.offers,r.resumes);
+    lb+=`<div class="leader-row"><div class="leader-rank ${rc}">${rank}</div><div class="leader-name">${r.name}</div><div class="leader-stats"><span class="leader-stat">📋 岗位 <strong>${r.positions}</strong></span><span class="leader-stat">✅ 入职 <strong>${r.onboarded}</strong></span><span class="leader-stat">📨 Offer <strong>${r.offers}</strong></span><span class="leader-stat">🔄 招聘中 <strong>${r.recruiting}</strong></span><span class="leader-stat">📊 简历→Offer ${oRate}</span><span class="leader-stat">📐 简历 <strong>${r.resumes}</strong> | 通过 <strong>${r.validResumes}</strong> | 一面 <strong>${r.round1}</strong> | 二面 <strong>${r.round2||0}</strong> | 终面 <strong>${r.final}</strong></span></div></div>`;
+  });
+  document.getElementById('leaderboard').innerHTML=lb;
+  
+  // Table
+  let h='';
+  recs.forEach(r=>{
+    h+=`<tr><td><strong>${r.name}</strong></td><td>${r.positions}</td><td>${r.onboarded}</td><td>${r.offered}</td><td>${r.recruiting}</td><td>${r.resumes}</td><td>${r.validResumes}</td><td>${r.round1}</td><td>${r.round2||0}</td><td>${r.final}</td><td><strong>${r.offers}</strong></td><td>${pct(r.validResumes,r.resumes)}</td><td>${pct(r.round1,r.validResumes)}</td><td>${pct(r.round2||0,r.round1)}</td><td>${pct(r.final,r.round2||0)}</td><td>${pct(r.offers,r.final)}</td><td>${cn(r.offers,r.resumes)}</td></tr>`;
+  });
+  document.getElementById('tab4tbl').innerHTML=h;
+})();
+
+// ===== Tab 5: Alerts =====
+(function(){
+  if(D.tab5.length===0){
+    document.getElementById('tab5content').innerHTML='<div class="empty"><div class="ico">✅</div><div style="font-size:15px;font-weight:600;margin-bottom:4px">暂无预警岗位</div><div style="font-size:13px">所有正在招聘的岗位均在招聘周期内，无超期风险</div></div>';
+  } else {
+    let h='<div class="tbl-wrap" style="padding-bottom:16px"><table><thead><tr><th>需求编号</th><th>职位名称</th><th>负责人</th><th>区域</th><th>组织</th><th>已招聘天数</th><th>标准周期</th><th>剩余天数</th><th>预警等级</th></tr></thead><tbody>';
+    D.tab5.forEach(a=>{
+      const level=a.remaining<=0?'<span class="tag" style="background:#fef2f2;color:#ef4444">🔴 已超期</span>':a.remaining<=7?'<span class="tag" style="background:#fffbeb;color:#d97706">🟡 7天内</span>':'<span class="tag" style="background:#eff6ff;color:#3b82f6">🔵 14天内</span>';
+      h+=`<tr><td><strong style="font-family:monospace">${a.reqId||'—'}</strong></td><td>${a.position}</td><td>${a.recruiter}</td><td>${a.region}</td><td>${a.org3||'—'}</td><td>${a.days}天</td><td>${a.cycle}天</td><td><strong>${a.remaining<=0?'已超'+Math.abs(a.remaining):a.remaining+'天'}</strong></td><td>${level}</td></tr>`;
+    });
+    h+='</tbody></table></div>';
+    document.getElementById('tab5content').innerHTML=h;
+  }
+})();
+</script>
+</body>
+</html>
